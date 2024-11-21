@@ -1,0 +1,160 @@
+import java.sql.*;
+import java.util.Scanner;
+
+public class CarRentalManagement {
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/CarRentalDB";
+    private static final String DB_USER = "root";
+    private static final String DB_PASSWORD = "";
+    private static final double PRICE_PER_DAY = 50.0; // Price per day for renting a car
+
+    private Connection connection;
+
+    public CarRentalManagement() {
+        try {
+            // Load JDBC Driver
+            Class.forName("com.mysql.cj.jdbc.Driver");
+
+            // Establish Database Connection
+            connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void addUser(String name, String phone) {
+        try {
+            String query = "INSERT INTO Users (name, phone) VALUES (?, ?)";
+            PreparedStatement statement = connection.prepareStatement(query);
+            statement.setString(1, name);
+            statement.setString(2, phone);
+            statement.executeUpdate();
+            System.out.println("User registered successfully!");
+        } catch (SQLException e) {
+            System.out.println("Error: Could not register user. Phone number might already exist.");
+        }
+    }
+
+    public void checkCarAvailability() {
+        try {
+            String query = "SELECT * FROM Cars";
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(query);
+
+            System.out.println("\nCar Availability:");
+            while (resultSet.next()) {
+                int carId = resultSet.getInt("carId");
+                String brand = resultSet.getString("brand");
+                String model = resultSet.getString("model");
+                boolean isAvailable = resultSet.getBoolean("isAvailable");
+
+                System.out.printf("Car ID: %d | Brand: %s | Model: %s | Available: %s%n",
+                        carId, brand, model, isAvailable ? "Yes" : "No");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void rentCar(int carId, int days) {
+        try {
+            String checkQuery = "SELECT isAvailable FROM Cars WHERE carId = ?";
+            PreparedStatement checkStatement = connection.prepareStatement(checkQuery);
+            checkStatement.setInt(1, carId);
+            ResultSet resultSet = checkStatement.executeQuery();
+
+            if (resultSet.next()) {
+                boolean isAvailable = resultSet.getBoolean("isAvailable");
+                if (isAvailable) {
+                    String updateQuery = "UPDATE Cars SET isAvailable = FALSE WHERE carId = ?";
+                    PreparedStatement updateStatement = connection.prepareStatement(updateQuery);
+                    updateStatement.setInt(1, carId);
+                    updateStatement.executeUpdate();
+
+                    double totalCost = days * PRICE_PER_DAY;
+                    System.out.printf("Car rented successfully for %d days! Total cost: $%.2f%n", days, totalCost);
+                } else {
+                    System.out.println("Car is not available because it is already rented.");
+                }
+            } else {
+                System.out.println("Invalid car ID. Please try again.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void returnCar(int carId) {
+        try {
+            String checkQuery = "SELECT * FROM Cars WHERE carId = ? AND isAvailable = FALSE";
+            PreparedStatement checkStatement = connection.prepareStatement(checkQuery);
+            checkStatement.setInt(1, carId);
+            ResultSet resultSet = checkStatement.executeQuery();
+
+            if (resultSet.next()) {
+                String updateQuery = "UPDATE Cars SET isAvailable = TRUE WHERE carId = ?";
+                PreparedStatement updateStatement = connection.prepareStatement(updateQuery);
+                updateStatement.setInt(1, carId);
+                updateStatement.executeUpdate();
+                System.out.println("Car returned successfully!");
+            } else {
+                System.out.println("Car is either not rented or invalid car ID.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void menu() {
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("===== Car Rental Management System =====");
+
+        System.out.print("Enter your name: ");
+        String name = scanner.nextLine();
+        System.out.print("Enter your phone number: ");
+        String phone = scanner.nextLine();
+        addUser(name, phone);
+
+        while (true) {
+            System.out.println("\n===== Menu =====");
+            System.out.println("1. View Available Cars");
+            System.out.println("2. Rent a Car");
+            System.out.println("3. Return a Car");
+            System.out.println("4. Exit");
+            System.out.print("Enter your choice: ");
+
+            int choice = scanner.nextInt();
+            scanner.nextLine(); 
+
+            switch (choice) {
+                case 1:
+                    checkCarAvailability();
+                    break;
+                case 2:
+                    System.out.print("Enter the Car ID to rent: ");
+                    int rentCarId = scanner.nextInt();
+                    System.out.print("Enter the number of days to rent: ");
+                    int days = scanner.nextInt();
+                    scanner.nextLine(); 
+                    rentCar(rentCarId, days);
+                    break;
+                case 3:
+                    System.out.print("Enter the Car ID to return: ");
+                    int returnCarId = scanner.nextInt();
+                    scanner.nextLine(); 
+                    returnCar(returnCarId);
+                    break;
+                case 4:
+                    System.out.println("Thank you for using the Car Rental Management System!");
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        CarRentalManagement system = new CarRentalManagement();
+        system.menu();
+    }
+}
